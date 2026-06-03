@@ -1,0 +1,59 @@
+name: Build Client Modpack
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "AutoPack" ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout AutoPack branch
+        uses: actions/checkout@v4
+        with:
+          ref: AutoPack
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install Packwiz
+        run: go install github.com/packwiz/packwiz@latest
+
+      - name: Refresh Packwiz Index
+        run: packwiz refresh
+
+      - name: Export Modrinth Pack (.mrpack)
+        run: packwiz modrinth export -o HonhuCraft-Client.mrpack
+
+      - name: Export CurseForge Pack (.zip)
+        run: packwiz curseforge export -o HonhuCraft-Client-CF.zip
+
+      - name: Get version
+        id: version
+        run: echo "version=$(date +%Y%m%d)-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: HonhuCraft-Client-${{ steps.version.outputs.version }}
+          path: |
+            HonhuCraft-Client.mrpack
+            HonhuCraft-Client-CF.zip
+          retention-days: 30
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: HonhuCraft ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            HonhuCraft-Client.mrpack
+            HonhuCraft-Client-CF.zip
