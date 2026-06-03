@@ -1,12 +1,12 @@
-name: Build Client Modpack (Auto)
+name: Build Client Modpack
 
-# 触发条件：
-# 1. 手动点击 (workflow_dispatch)
-# 2. 或者每次推送到 main 分支时自动触发 (push)
 on:
   workflow_dispatch:
   push:
-    branches: [ "main" ]
+    branches: [ "AutoPack" ]
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -17,9 +17,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.22'
 
       - name: Install Packwiz
         run: go install github.com/packwiz/packwiz@latest
@@ -33,11 +33,25 @@ jobs:
       - name: Export CurseForge Pack (.zip)
         run: packwiz curseforge export -o HonhuCraft-Client-CF.zip
 
+      - name: Get version
+        id: version
+        run: echo "version=$(date +%Y%m%d)-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: HonhuCraft-Client-Build-${{ github.run_number }}
+          name: HonhuCraft-Client-${{ steps.version.outputs.version }}
           path: |
             HonhuCraft-Client.mrpack
             HonhuCraft-Client-CF.zip
-          retention-days: 5
+          retention-days: 30
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: HonhuCraft ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            HonhuCraft-Client.mrpack
+            HonhuCraft-Client-CF.zip
